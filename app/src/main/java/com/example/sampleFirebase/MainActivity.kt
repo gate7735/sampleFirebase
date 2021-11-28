@@ -5,74 +5,67 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import com.example.sampleFirebase.databinding.ActivityMainBinding
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.ktx.Firebase
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var auth: FirebaseAuth
+
     private lateinit var binding: ActivityMainBinding
 
+    private val mainViewModel: MainViewModel by lazy {
+        ViewModelProvider(this, object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
+                    return MainViewModel() as T
+                } else throw IllegalArgumentException()
+            }
+        }).get(MainViewModel::class.java)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Initialize Firebase Auth
-        auth = Firebase.auth
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        Toast.makeText(this, auth.currentUser?.uid.toString(), Toast.LENGTH_SHORT).show()
-
         binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
+        setContentView(binding.root)
+        initViewModel()
+    }
 
-        val joinButton = binding.btnJoin
-        val logoutButton = binding.btnLogout
-        val loginButton = binding.btnLogin
-        joinButton.setOnClickListener {
-//            val emailEditText = findViewById<EditText>(R.id.et_email)
-//            val pwdEditText = findViewById<EditText>(R.id.et_pwd)
-            val emailEditText = binding.etEmail
-            val pwdEditText = binding.etPwd
-            auth.createUserWithEmailAndPassword(
-                emailEditText.text.toString(),
-                pwdEditText.text.toString()
-            )
-                .addOnCompleteListener(this) { task ->
-                    if (task.isSuccessful) {
-                        Toast.makeText(
-                            baseContext, "createUserWithEmail:success",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        Toast.makeText(
-                            baseContext, "Authentication failed.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+
+    private fun initViewModel() {
+        binding.viewModel = mainViewModel
+
+        mainViewModel.mainViewStateLiveData.observe(this) { viewState ->
+            when (viewState) {
+                is MainViewModel.MainViewState.Join -> {
+                    showToast(message = "${viewState.userEmail} 님이 로그인되었습니다.")
                 }
-        }
-        logoutButton.setOnClickListener {
-            auth.signOut()
-            Toast.makeText(this, auth.currentUser?.uid.toString(), Toast.LENGTH_SHORT).show()
-        }
-        loginButton.setOnClickListener {
-            auth.signInWithEmailAndPassword(
-                binding.etEmail.text.toString(),
-                binding.etPwd.text.toString()
-            )
-                .addOnCompleteListener(this) { task ->
-                    if (task.isSuccessful) {
-                        Toast.makeText(
-                            this,
-                            "Login - ${auth.currentUser?.uid.toString()}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        val intent = Intent(this, BoardListActivity::class.java)
-                        startActivity(intent)
-                    } else {
-                        Toast.makeText(this, "Login - Failed", Toast.LENGTH_SHORT).show()
-                    }
+
+                is MainViewModel.MainViewState.LogIn -> {
+                    showToast(message = "${viewState.userEmail} 님이 로그인되었습니다.")
+                    val intent = Intent(this, BoardListActivity::class.java)
+                    startActivity(intent)
                 }
+
+                is MainViewModel.MainViewState.Logout -> {
+                    showToast(message = "로그아웃되었습니다")
+                }
+
+                is MainViewModel.MainViewState.Error -> {
+                    showToast(message = viewState.message)
+                }
+
+                is MainViewModel.MainViewState.EmptyUserEmail -> {
+                    showToast(message = "이메일을 입력하세요.")
+                }
+                is MainViewModel.MainViewState.EmptyUserPass -> {
+                    showToast(message = "비밀번호를 입력하세요.")
+                }
+            }
         }
     }
+}
+
+fun AppCompatActivity.showToast(message: String) {
+    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 }
